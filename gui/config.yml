@@ -14,6 +14,9 @@ paths:
   vms_service: proxmox-vms-b2.service
   local_configs: /var/backups/proxmox-b2/configs
   local_vms: /var/backups/proxmox-b2/vms
+  vzdump_dir: /var/lib/vz/dump
+  local_dump_paths:
+    - /var/lib/vz/dump
   lock_file: /var/lock/proxmox-backup-gui.lock
 b2:
   remote: proxmox-b2

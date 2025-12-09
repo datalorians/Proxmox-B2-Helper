@@ -23,6 +23,26 @@ def load_config():
 
 
 CFG = load_config()
+ENV_FILE = os.environ.get("ENV_FILE", "/root/proxmox-backup/backup.env")
+
+
+def current_b2_cfg():
+    base = dict(CFG.get("b2", {}))
+    env = {}
+    try:
+        env = load_env(ENV_FILE)
+    except Exception:
+        env = {}
+    mapping = {
+        "bucket": "B2_BUCKET",
+        "prefix_configs": "B2_PREFIX",
+        "prefix_vms": "B2_PREFIX_VMS",
+        "remote": "RCLONE_REMOTE",
+    }
+    for k, env_key in mapping.items():
+        if env_key in env and env[env_key]:
+            base[k] = env[env_key]
+    return base
 
 
 def detect_tailscale_ip():
@@ -252,11 +272,13 @@ def list_vms_and_cts():
 
 
 def run_vzdump_stop(vmid):
-    return run_cmd(["vzdump", str(vmid), "--mode", "stop", "--dumpdir", "/var/lib/vz/dump"], timeout=15000)
+    cfg_paths = CFG.get("paths", {})
+    dumpdir = cfg_paths.get("vzdump_dir", "/var/lib/vz/dump")
+    return run_cmd(["vzdump", str(vmid), "--mode", "stop", "--dumpdir", dumpdir], timeout=15000)
 
 
 def upload_local_to_b2(scope, local_path):
-    cfg = CFG.get("b2", {})
+    cfg = current_b2_cfg()
     remote = cfg.get("remote", "proxmox-b2")
     bucket = cfg.get("bucket", "")
     if scope == "configs":
@@ -268,7 +290,7 @@ def upload_local_to_b2(scope, local_path):
 
 
 def restore_b2_to_local(scope, name, dest_dir):
-    cfg = CFG.get("b2", {})
+    cfg = current_b2_cfg()
     remote = cfg.get("remote", "proxmox-b2")
     bucket = cfg.get("bucket", "")
     if scope == "configs":
@@ -449,7 +471,7 @@ def recent_runs(unit, max_items=6):
 @app.route("/")
 def dashboard():
     cfg_paths = CFG.get("paths", {})
-    b2_cfg = CFG.get("b2", {})
+    b2_cfg = current_b2_cfg()
     ui_cfg = CFG.get("ui", {})
     journal_lines = int(ui_cfg.get("journal_lines", 50))
 
@@ -555,7 +577,7 @@ def trigger_vm():
 @app.route("/api/status")
 def api_status():
     cfg_paths = CFG.get("paths", {})
-    b2_cfg = CFG.get("b2", {})
+    b2_cfg = current_b2_cfg()
     data = {
         "local": {
             "configs": list_local(cfg_paths.get("local_configs", "/var/backups/proxmox-b2/configs")),
@@ -572,14 +594,17 @@ def api_status():
 @app.route("/api/backups")
 def api_backups():
     cfg_paths = CFG.get("paths", {})
-    b2_cfg = CFG.get("b2", {})
+    b2_cfg = current_b2_cfg()
     b2c = b2_list(b2_cfg.get("remote", "proxmox-b2"), b2_cfg.get("bucket", ""), b2_cfg.get("prefix_configs", "proxmox/configs"))
     b2v = b2_list(b2_cfg.get("remote", "proxmox-b2"), b2_cfg.get("bucket", ""), b2_cfg.get("prefix_vms", "proxmox/vms"))
     b2c_costed, b2c_storage, b2c_egress = cost_estimates(b2c.get("items", []))
     b2v_costed, b2v_storage, b2v_egress = cost_estimates(b2v.get("items", []))
     local_c = list_local(cfg_paths.get("local_configs", "/var/backups/proxmox-b2/configs"))
     local_v = list_local(cfg_paths.get("local_vms", "/var/backups/proxmox-b2/vms"))
-    local_v_dump = list_local_recursive(["/var/lib/vz/dump", "/mnt/thinner/backups"], max_items=400)
+    dump_paths = cfg_paths.get("local_dump_paths", ["/var/lib/vz/dump"])
+    if isinstance(dump_paths, str):
+        dump_paths = [dump_paths]
+    local_v_dump = list_local_recursive(dump_paths, max_items=400)
     lc_costed, lc_storage, lc_egress = cost_estimates(local_c.get("items", []))
     lv_costed, lv_storage, lv_egress = cost_estimates(local_v.get("items", []))
     lvd_costed, lvd_storage, lvd_egress = cost_estimates(local_v_dump)
@@ -600,7 +625,7 @@ def api_delete_b2():
     name = flask.request.form.get("name", "")
     if not name:
         return "name required", 400
-    b2_cfg = CFG.get("b2", {})
+    b2_cfg = current_b2_cfg()
     remote = b2_cfg.get("remote", "proxmox-b2")
     bucket = b2_cfg.get("bucket", "")
     prefix = b2_cfg.get("prefix_configs" if scope == "configs" else "prefix_vms", "proxmox/configs")
@@ -636,10 +661,11 @@ def api_restore():
     name = flask.request.form.get("name", "")
     if not name:
         return "name required", 400
+    cfg_paths = CFG.get("paths", {})
     if scope == "configs":
-        dest_dir = "/var/backups/proxmox-b2/configs"
+        dest_dir = cfg_paths.get("local_configs", "/var/backups/proxmox-b2/configs")
     else:
-        dest_dir = "/var/lib/vz/dump"
+        dest_dir = cfg_paths.get("vzdump_dir", "/var/lib/vz/dump")
     code, dest, err = restore_b2_to_local(scope, name, dest_dir)
     return (f"restored to {dest}" if code == 0 else f"restore failed: {err}", 200 if code == 0 else 500)
 

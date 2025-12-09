@@ -12,7 +12,7 @@ backup.env
 *.log
 *.sha256
 /var/backups/
-/mnt/thinner/backups/
+/mnt/*/backups/
 
 # System artifacts
 *.pyc

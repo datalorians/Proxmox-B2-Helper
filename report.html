@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Proxmox Backup & Storage Overview</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; color: #222; line-height: 1.5; }
+    h1, h2, h3 { color: #0b3d91; margin-bottom: 0.2em; }
+    code { background: #f4f4f4; padding: 0 4px; }
+    pre { background: #f9f9f9; padding: 12px; overflow-x: auto; border: 1px solid #ddd; }
+    .card { border: 1px solid #ddd; border-radius: 6px; padding: 12px 16px; margin: 12px 0; }
+    .ok { color: #137333; }
+    .warn { color: #d9822b; }
+    .crit { color: #c0392b; }
+    ul { margin-top: 0; }
+    .mono { font-family: monospace; }
+  </style>
+</head>
+<body>
+  <h1>Proxmox 9 Backup & Storage Overview</h1>
+  <p>Generated: <span class="mono">2025-12-08</span></p>
+
+  <div class="card">
+    <h2>Backup setup (current)</h2>
+    <ul>
+      <li>Scope: configs-only (mode A), weekly timer <code>Sun 03:30 UTC</code>.</li>
+      <li>Local staging: <code>/var/backups/proxmox-b2/configs</code>, cache: <code>/var/backups/proxmox-b2/cache</code>.</li>
+      <li>Service/timer: <code>/etc/systemd/system/proxmox-config-b2.service</code>, <code>...b2.timer</code> (enabled).</li>
+      <li>Script: <code>/root/proxmox-backup/backup-configs.sh</code>; env: <code>/root/proxmox-backup/backup.env</code> (DRY_RUN=1 until B2 creds provided).</li>
+      <li>Retention: keep last 4 archives in B2 (configurable via <code>RETENTION_COUNT</code>).</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Latest backup (local test)</h2>
+    <ul>
+      <li>Archive: <code>proxmox-configs-20251208T235500Z.tar.gz</code></li>
+      <li>Path: <code>/var/backups/proxmox-b2/configs/</code></li>
+      <li>SHA256: <code>2848bf74d921515afed6a0ab3c47afd704725fb27d7903504ad0c9c2afa566b9</code></li>
+      <li>Restore test: extracted successfully to <code>/tmp/proxmox-restore-test</code> (temp removed).</li>
+      <li>Upload: skipped (DRY_RUN=1). Enable by setting B2 creds and <code>DRY_RUN=0</code>.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>How to enable B2 uploads</h2>
+    <ol>
+      <li>Edit <code>/root/proxmox-backup/backup.env</code>: set <code>B2_ACCOUNT_ID</code>, <code>B2_APP_KEY</code>, <code>B2_BUCKET</code>; set <code>DRY_RUN=0</code>.</li>
+      <li>Install rclone if missing: <code>apt install rclone</code>.</li>
+      <li>Run once manually: <code>ENV_FILE=/root/proxmox-backup/backup.env /root/proxmox-backup/backup-configs.sh</code>.</li>
+      <li>Verify in B2: list objects under <code>${B2_PREFIX}</code>; confirm retention pruning keeps 4.</li>
+    </ol>
+    <p>Modes C/D (future): use <code>BACKUP_MODE</code> switch and extend script to call <code>vzdump</code> for VM/CT disks or host imaging; reuse same env/retention.</p>
+  </div>
+
+  <div class="card">
+    <h2>Host & storage summary</h2>
+    <ul>
+      <li>Proxmox: <code>pve-manager/9.1.1</code>, kernel <code>6.17.2-2-pve</code>.</li>
+      <li>System disks: 3×1.8T in md RAID5:
+        <ul>
+          <li><code>/</code> on <code>md3</code> (20G ext4), <code>/boot</code> on <code>md2</code> (ext4), EFI on <code>md1</code>.</li>
+          <li>VM store: <code>md5</code> → LVM <code>vg-data</code> → ext4 at <code>/var/lib/vz</code> (1.8T, ~80% used; ~357G free).</li>
+        </ul>
+      </li>
+      <li>Standalone disk: secondary 2TB ext4 mount for media/scratch (adjust mount path to your environment).</li>
+      <li>Additional mount: NFS share attached under <code>/mnt/pve</code> (replace with your own share path).</li>
+      <li>Network: bridges <code>vmbr0</code> (public uplink) and <code>vmbr1</code> (LAN); Tailscale present.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Findings & recommendations</h2>
+    <h3>Backups</h3>
+    <ul>
+      <li class="ok">Configs backup works locally; timer enabled. Set B2 creds and DRY_RUN=0 to activate uploads.</li>
+      <li class="warn">Install <code>rclone</code> before first upload; currently not present.</li>
+      <li class="ok">Retention is server-side (keep 4). Adjust <code>RETENTION_COUNT</code> as needed.</li>
+    </ul>
+    <h3>Storage</h3>
+    <ul>
+      <li class="warn">/var/lib/vz at 80% used. Consider pruning old ISOs/templates, moving cold data to NFS, or expanding storage before heavy growth.</li>
+      <li class="ok">Standalone 2TB disk currently ext4 on LVM thin; good fit for media/scratch. Keep it separate from VM disks as planned.</li>
+      <li class="warn">If you want snapshots/quotas for media VM: options include ZFS-on-LUKS or LVM-thin with per-VM volumes exported via virtio-scsi; Proxmox storage GUI supports LVM-thin for disks. For pure file/media, ext4 is fine and low-overhead.</li>
+      <li class="ok">NFS share available for offloading bulky data/ISO/templates if desired.</li>
+    </ul>
+    <h3>Future enhancements</h3>
+    <ul>
+      <li>Add modes C/D: integrate <code>vzdump</code> for VM/CT disks with stop/snapshot selection; upload via same rclone path.</li>
+      <li>Monitoring: hook <code>OnFailure=</code> for the service to email or send webhook (e.g., healthchecks.io).</li>
+      <li>Checksum verification: optional post-upload <code>rclone check</code> against local archive.</li>
+    </ul>
+  </div>
+</body>
+</html>
