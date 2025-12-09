@@ -1,0 +1,25 @@
+bind:
+  # Use 'auto' to bind to the first tailscale0 IPv4; fallback to 127.0.0.1
+  host: auto
+  port: 8800
+auth:
+  basic_enabled: false
+  username: admin
+  password: changeme
+paths:
+  configs_env: /root/proxmox-backup/backup.env
+  configs_service: proxmox-config-b2.service
+  vms_env: /root/proxmox-backup/backup.env
+  vms_script: /root/proxmox-backup/backup-vms.sh
+  vms_service: proxmox-vms-b2.service
+  local_configs: /var/backups/proxmox-b2/configs
+  local_vms: /var/backups/proxmox-b2/vms
+  lock_file: /var/lock/proxmox-backup-gui.lock
+b2:
+  remote: proxmox-b2
+  bucket: your-b2-bucket-name
+  prefix_configs: proxmox/configs
+  prefix_vms: proxmox/vms
+ui:
+  journal_lines: 50
+  max_objects: 200

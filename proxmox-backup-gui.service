@@ -1,0 +1,14 @@
+[Unit]
+Description=Proxmox Backup GUI (Flask, Tailscale-bound)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/proxmox-backup/gui
+ExecStart=/usr/bin/python3 /root/proxmox-backup/gui/app.py
+Restart=on-failure
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

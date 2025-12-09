@@ -1,0 +1,9 @@
+[Unit]
+Description=Run Proxmox UI override at boot
+
+[Timer]
+OnBootSec=1min
+Unit=proxmox-ui-override.service
+
+[Install]
+WantedBy=timers.target

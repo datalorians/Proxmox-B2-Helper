@@ -1,0 +1,12 @@
+[Unit]
+Description=Weekly Proxmox configs backup to B2 (mode A)
+Wants=network-online.target
+After=network-online.target
+
+[Timer]
+OnCalendar=Sun *-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

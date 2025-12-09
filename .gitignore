@@ -1,0 +1,24 @@
+# Environment and secrets
+backup.env
+*.env
+*.key
+*.pem
+*.crt
+
+# Logs and archives
+*.tar.gz
+*.tar
+*.zip
+*.log
+*.sha256
+/var/backups/
+/mnt/thinner/backups/
+
+# System artifacts
+*.pyc
+__pycache__/
+.DS_Store
+
+# Local state
+chat-log*.txt
+chat-log*.jsonl

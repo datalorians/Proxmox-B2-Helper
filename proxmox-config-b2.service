@@ -1,0 +1,9 @@
+[Unit]
+Description=Proxmox configs backup to B2 (mode A)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=ENV_FILE=/root/proxmox-backup/backup.env
+ExecStart=/root/proxmox-backup/backup-configs.sh
