@@ -73,3 +73,6 @@ This repo is intended to be private. Before pushing, verify no secrets or privat
    - `proxmox-config-b2.service` / `.timer` for scheduled config backups
    - `proxmox-backup-gui.service` for the UI
    - `proxmox-ui-override.service` / `.timer` for the Proxmox top-bar button
+
+## Notes
+- Portions of this project were assisted using Cursor with the GPT-5 model.
