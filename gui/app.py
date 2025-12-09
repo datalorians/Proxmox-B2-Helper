@@ -659,6 +659,63 @@ def api_vzdump():
     return (f"vzdump exit={code}\n{out}\n{err}", 200 if code == 0 else 500)
 
 
+def load_env(path):
+    data = {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                data[k.strip()] = v
+    except FileNotFoundError:
+        pass
+    return data
+
+
+def save_env(path, new_data):
+    current = load_env(path)
+    current.update(new_data)
+    lines = []
+    for k, v in current.items():
+        lines.append(f"{k}={v}")
+    tmp_path = f"{path}.tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    os.replace(tmp_path, path)
+
+
+@app.route("/api/creds", methods=["GET", "POST"])
+def api_creds():
+    env_path = ENV_FILE
+    if flask.request.method == "GET":
+        data = load_env(env_path)
+        masked_key = "********" if data.get("B2_APP_KEY") else ""
+        return flask.jsonify(
+            {
+                "B2_ACCOUNT_ID": data.get("B2_ACCOUNT_ID", ""),
+                "B2_APP_KEY": masked_key,
+                "B2_BUCKET": data.get("B2_BUCKET", ""),
+                "B2_PREFIX": data.get("B2_PREFIX", "proxmox/configs"),
+                "RETENTION_COUNT": data.get("RETENTION_COUNT", ""),
+                "KEEP_LOCAL": data.get("KEEP_LOCAL", "0"),
+            }
+        )
+
+    payload = flask.request.get_json(silent=True) or {}
+    data = load_env(env_path)
+    updates = {}
+    for key in ["B2_ACCOUNT_ID", "B2_BUCKET", "B2_PREFIX", "RETENTION_COUNT", "KEEP_LOCAL"]:
+        if key in payload and payload[key] is not None:
+            updates[key] = str(payload[key])
+    app_key = payload.get("B2_APP_KEY", "")
+    if app_key and app_key != "********":
+        updates["B2_APP_KEY"] = app_key
+    save_env(env_path, updates)
+    return flask.jsonify({"status": "ok"})
+
+
 def main():
     bind_host = CFG.get("bind", {}).get("host", "auto")
     bind_port = int(CFG.get("bind", {}).get("port", 8800))

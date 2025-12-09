@@ -105,7 +105,7 @@ prune_remote() {
   local remove_count=$(( total - keep ))
   log "Pruning $remove_count old archives (keep newest $keep)"
   for ((i=0; i<remove_count; i++)); do
-    rclone deletefile "$target_remote/${files[$i]}" --config "$RCLONE_CONFIG"
+    rclone deletefile "${target_remote%/}/${files[$i]}" --config "$RCLONE_CONFIG"
   done
 }
 
@@ -115,7 +115,7 @@ cleanup_local() {
     log "Removed local archive (KEEP_LOCAL=0)"
   else
     log "Keeping local archive (KEEP_LOCAL!=0)"
-  }
+  fi
 }
 
 main() {

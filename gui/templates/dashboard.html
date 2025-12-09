@@ -22,6 +22,7 @@
           <small class="text-secondary">Updated: {{ now }}</small>
         </div>
         <div class="d-flex gap-2 align-items-center">
+          <a class="btn btn-sm btn-outline-info" href="https://github.com/datalorians/Proxmox-B2-Helper" target="_blank" rel="noopener">Repo</a>
           <button id="themeToggle" class="btn btn-sm btn-outline-secondary">Toggle Theme</button>
           <div id="actionAlert" class="alert d-none py-2 px-3 mb-0" role="alert"></div>
         </div>
@@ -267,6 +268,50 @@
       </div>
 
       <div class="row g-3 mt-3">
+        <div class="col-12">
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">Credentials</h6>
+                <small class="text-secondary">Stored in backup.env (local only)</small>
+              </div>
+              <form id="credsForm" class="row g-2">
+                <div class="col-md-6">
+                  <label class="form-label form-label-sm">B2 Account ID</label>
+                  <input type="text" class="form-control form-control-sm" id="b2AccountId" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label form-label-sm">B2 App Key (leave blank to keep)</label>
+                  <input type="password" class="form-control form-control-sm" id="b2AppKey" placeholder="********" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label form-label-sm">Bucket</label>
+                  <input type="text" class="form-control form-control-sm" id="b2Bucket" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label form-label-sm">Prefix</label>
+                  <input type="text" class="form-control form-control-sm" id="b2Prefix" />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label form-label-sm">Retention Count</label>
+                  <input type="number" class="form-control form-control-sm" id="retentionCount" />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label form-label-sm">Keep Local (0/1)</label>
+                  <input type="number" class="form-control form-control-sm" id="keepLocal" />
+                </div>
+                <div class="col-12 d-flex gap-2">
+                  <button type="button" id="credsSave" class="btn btn-sm btn-primary">Save</button>
+                  <button type="button" id="credsRefresh" class="btn btn-sm btn-secondary">Refresh</button>
+                  <div id="credsSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"></div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3 mt-3">
         <div class="col-12 col-xl-6">
           <div class="card shadow-sm h-100">
             <div class="card-body">
@@ -389,6 +434,55 @@
           });
         } catch (e) {
           console.error(e);
+        }
+      }
+
+      async function loadCreds() {
+        try {
+          const resp = await fetch('/api/creds');
+          const data = await resp.json();
+          document.getElementById('b2AccountId').value = data.B2_ACCOUNT_ID || '';
+          document.getElementById('b2AppKey').value = '';
+          document.getElementById('b2Bucket').value = data.B2_BUCKET || '';
+          document.getElementById('b2Prefix').value = data.B2_PREFIX || '';
+          document.getElementById('retentionCount').value = data.RETENTION_COUNT || '';
+          document.getElementById('keepLocal').value = data.KEEP_LOCAL || '0';
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      async function saveCreds() {
+        setSpinner('credsSpinner', true);
+        showAlert('info', 'Saving credentials...');
+        setResult('');
+        const payload = {
+          B2_ACCOUNT_ID: document.getElementById('b2AccountId').value.trim(),
+          B2_APP_KEY: document.getElementById('b2AppKey').value.trim(),
+          B2_BUCKET: document.getElementById('b2Bucket').value.trim(),
+          B2_PREFIX: document.getElementById('b2Prefix').value.trim(),
+          RETENTION_COUNT: document.getElementById('retentionCount').value.trim(),
+          KEEP_LOCAL: document.getElementById('keepLocal').value.trim(),
+        };
+        try {
+          const resp = await fetch('/api/creds', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const text = await resp.text();
+          setResult(text);
+          if (resp.ok) {
+            showAlert('success', 'Saved credentials');
+            loadCreds();
+          } else {
+            showAlert('danger', 'Save failed');
+          }
+        } catch (e) {
+          showAlert('danger', 'Error: ' + e);
+        } finally {
+          setSpinner('credsSpinner', false);
+          document.getElementById('b2AppKey').value = '';
         }
       }
 
@@ -578,9 +672,13 @@
         applyTheme(current === 'dark' ? 'light' : 'dark');
       });
 
+      document.getElementById('credsSave').addEventListener('click', saveCreds);
+      document.getElementById('credsRefresh').addEventListener('click', loadCreds);
+
       initTheme();
       loadBackups();
       loadVMs();
+      loadCreds();
     </script>
   </body>
 </html>
