@@ -51,6 +51,7 @@ A small toolkit to back up Proxmox configs and VM/CT dumps to Backblaze B2 (or a
 - Do NOT commit `backup.env` or any real credentials/keys.
 - Do NOT commit dumps/logs/archives. `.gitignore` excludes common patterns; add more as needed.
 - `reapply-ui.sh` uses `BACKUP_UI_URL` from the environment; defaults to `http://127.0.0.1:8800/` to avoid leaking private IPs.
+- Serve the UI only on local/Tailscale addresses; it is not meant to be exposed publicly or embedded into the main Proxmox interface beyond the convenience button link.
 
 ## Getting started (quick run)
 1) Copy env and fill in B2 values:
