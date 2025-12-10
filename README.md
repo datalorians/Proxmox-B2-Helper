@@ -18,61 +18,6 @@ A small toolkit to back up Proxmox configs and VM/CT dumps to Backblaze B2 (or a
 - `.gitignore` — excludes secrets, logs, archives.
 - `install.sh` — installer for fresh Proxmox hosts (installs deps, copies files to `/root/proxmox-backup`, enables services/timers, applies UI button).
 
-## Setup
-1) Install dependencies:
-   ```bash
-   apt-get install -y rclone python3-flask
-   ```
-
-2) Configure B2 (or B2) creds:
-   ```bash
-   cp backup.env.sample backup.env
-   # edit backup.env: set B2_ACCOUNT_ID, B2_APP_KEY, B2_BUCKET, etc.
-   ```
-
-3) Optional: top-bar button helper
-   - Edit `reapply-ui.sh` and set `BACKUP_UI_URL` (e.g., `http://127.0.0.1:8800/` or your Tailscale URL).
-   - Install the service/timer: `proxmox-ui-override.service` / `.timer` (sample units here).
-
-4) Systemd units (samples):
-   - `proxmox-config-b2.service` / `.timer` — scheduled config backups.
-   - `proxmox-backup-gui.service` — runs the Flask UI.
-   - `proxmox-ui-override.service` / `.timer` — optional top-bar button reapply.
-   Adjust paths inside units if your layout differs.
-
-5) Run the UI locally for testing:
-   ```bash
-   export ENV_FILE=/root/proxmox-backup/backup.env  # adjust path
-   python3 gui/app.py
-   # access at http://127.0.0.1:8800
-   ```
-
-## Safety & secrets
-- Do NOT commit `backup.env` or any real credentials/keys.
-- Do NOT commit dumps/logs/archives. `.gitignore` excludes common patterns; add more as needed.
-- `reapply-ui.sh` uses `BACKUP_UI_URL` from the environment; defaults to `http://127.0.0.1:8800/` to avoid leaking private IPs.
-- Serve the UI only on local/Tailscale addresses; it is not meant to be exposed publicly or embedded into the main Proxmox interface beyond the convenience button link.
-
-## Getting started (quick run)
-1) Copy env and fill in B2 values:
-   ```bash
-   cp backup.env.sample backup.env
-   # edit backup.env: set B2_ACCOUNT_ID, B2_APP_KEY, B2_BUCKET, etc.
-   ```
-2) Install deps:
-   ```bash
-   apt-get install -y rclone python3-flask
-   ```
-3) Run the UI:
-   ```bash
-   ENV_FILE=$PWD/backup.env python3 gui/app.py
-   # then open http://127.0.0.1:8800
-   ```
-4) Optional: install systemd units (adjust paths):
-   - `proxmox-config-b2.service` / `.timer` for scheduled config backups
-   - `proxmox-backup-gui.service` for the UI
-   - `proxmox-ui-override.service` / `.timer` for the Proxmox top-bar button
-
 ## Install on a fresh Proxmox host (recommended)
 Run as root on the Proxmox node:
 ```bash
@@ -80,16 +25,39 @@ Run as root on the Proxmox node:
 ```
 What it does:
 - Verifies Proxmox (`pveversion`), installs deps (rclone, python3, venv, pip).
-- Copies repo into `/root/proxmox-backup` and ensures `/var/backups/proxmox-b2/{configs,vms,cache}` exist.
-- Copies sample units into `/etc/systemd/system` and enables: `proxmox-config-b2.timer`, `proxmox-backup-gui.service`, `proxmox-ui-override.timer`.
+- Copies the toolkit to `/root/proxmox-backup` and ensures `/var/backups/proxmox-b2/{configs,vms,cache}` exist.
+- Installs/enables systemd units: `proxmox-config-b2.timer`, `proxmox-backup-gui.service`, `proxmox-ui-override.timer`.
 - Applies the Proxmox top-bar "Backup UI" button via `reapply-ui.sh` (defaults to `http://127.0.0.1:8800/`; set `BACKUP_UI_URL` env to override before running).
-- If `backup.env` does not exist, creates it from the sample with `DRY_RUN=1` and placeholder bucket. You must edit `/root/proxmox-backup/backup.env` to add B2 creds and set `DRY_RUN=0` to enable uploads.
+- If `backup.env` is missing, creates it from the sample with `DRY_RUN=1` and a placeholder bucket. Edit `/root/proxmox-backup/backup.env` to add B2 creds and set `DRY_RUN=0` to enable uploads.
 
 After install:
 - Edit `/root/proxmox-backup/backup.env` (B2 creds, DRY_RUN=0).
-- UI: `http://127.0.0.1:8800` (or Tailscale IP). The Proxmox top bar should have “Backup UI”.
+- UI: `http://127.0.0.1:8800` or your Tailscale IP. The Proxmox top bar should have “Backup UI”.
 - Services: `proxmox-config-b2.timer`, `proxmox-backup-gui.service`, `proxmox-ui-override.timer`.
 - Optional: run one config backup manually to verify: `systemctl start proxmox-config-b2.service`.
+
+## Manual setup (if not using install.sh)
+1) Install deps:
+   ```bash
+   apt-get install -y rclone python3-flask
+   ```
+2) Configure env:
+   ```bash
+   cp backup.env.sample backup.env
+   # edit: B2_ACCOUNT_ID, B2_APP_KEY, B2_BUCKET, B2_PREFIX, DRY_RUN=0 to enable uploads
+   ```
+3) Run the UI:
+   ```bash
+   ENV_FILE=$PWD/backup.env python3 gui/app.py
+   # open http://127.0.0.1:8800 (or your Tailscale IP)
+   ```
+4) Optional systemd units (adjust paths):
+   - `proxmox-config-b2.service` / `.timer` for scheduled config backups
+   - `proxmox-backup-gui.service` for the UI
+   - `proxmox-ui-override.service` / `.timer` for the Proxmox top-bar button
+
+## Access
+- Serve the UI only on local or Tailscale addresses. It is not meant to be exposed publicly or integrated into the main Proxmox interface beyond the convenience button link.
 
 ## Notes
 - Portions of this project were assisted using Cursor with the GPT-5 model.
