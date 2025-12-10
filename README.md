@@ -16,6 +16,7 @@ A small toolkit to back up Proxmox configs and VM/CT dumps to Backblaze B2 (or a
 - `reapply-ui.sh` — optional helper to add a Proxmox top-bar "Backup UI" button (uses `BACKUP_UI_URL`).
 - `*.service` / `*.timer` — sample systemd units for configs backup, UI, and top-bar button reapply.
 - `.gitignore` — excludes secrets, logs, archives.
+- `install.sh` — installer for fresh Proxmox hosts (installs deps, copies files to `/root/proxmox-backup`, enables services/timers, applies UI button).
 
 ## Setup
 1) Install dependencies:
@@ -73,6 +74,24 @@ This repo is intended to be private. Before pushing, verify no secrets or privat
    - `proxmox-config-b2.service` / `.timer` for scheduled config backups
    - `proxmox-backup-gui.service` for the UI
    - `proxmox-ui-override.service` / `.timer` for the Proxmox top-bar button
+
+## Install on a fresh Proxmox host (recommended)
+Run as root on the Proxmox node:
+```bash
+./install.sh
+```
+What it does:
+- Verifies Proxmox (`pveversion`), installs deps (rclone, python3, venv, pip).
+- Copies repo into `/root/proxmox-backup` and ensures `/var/backups/proxmox-b2/{configs,vms,cache}` exist.
+- Copies sample units into `/etc/systemd/system` and enables: `proxmox-config-b2.timer`, `proxmox-backup-gui.service`, `proxmox-ui-override.timer`.
+- Applies the Proxmox top-bar "Backup UI" button via `reapply-ui.sh` (defaults to `http://127.0.0.1:8800/`; set `BACKUP_UI_URL` env to override before running).
+- If `backup.env` does not exist, creates it from the sample with `DRY_RUN=1` and placeholder bucket. You must edit `/root/proxmox-backup/backup.env` to add B2 creds and set `DRY_RUN=0` to enable uploads.
+
+After install:
+- Edit `/root/proxmox-backup/backup.env` (B2 creds, DRY_RUN=0).
+- UI: `http://127.0.0.1:8800` (or Tailscale IP). The Proxmox top bar should have “Backup UI”.
+- Services: `proxmox-config-b2.timer`, `proxmox-backup-gui.service`, `proxmox-ui-override.timer`.
+- Optional: run one config backup manually to verify: `systemctl start proxmox-config-b2.service`.
 
 ## Notes
 - Portions of this project were assisted using Cursor with the GPT-5 model.
